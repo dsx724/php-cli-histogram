@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-//Simple CLI Wrapped PHP Histogram 
+//Simple Bash/CLI Wrapped PHP Histogram 
 //Variance algorithm based on http://www.cs.berkeley.edu/~mhoemmen/cs194/Tutorials/variance.pdf
 //Usage: iostat -dx 1 /dev/sda | gawk '/sda/ {print $14 | "./histogram.php" }'
 //Usage: cat someprogram.log | ./histogram.php 0 100 10
@@ -13,6 +13,7 @@
 
 /* Requires: 
  * PHP CLI (sudo apt-get install php5-cli)
+ * tput
  */
 /* Cautionary Tails:
  * Beware of overrun issues with $t on large numerical inputs esp on 32 bit machines - may throw means off
