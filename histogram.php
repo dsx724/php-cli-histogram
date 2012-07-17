@@ -1,16 +1,36 @@
 #!/usr/bin/php
 <?php
-//Simple Histogram 
+//Simple CLI Wrapped PHP Histogram 
 //Variance algorithm based on http://www.cs.berkeley.edu/~mhoemmen/cs194/Tutorials/variance.pdf
-//Usage: iostat -dx 1 /dev/sda | gawk '/sda/ {print $14 | "php histogram.php" }'
+//Usage: iostat -dx 1 /dev/sda | gawk '/sda/ {print $14 | "./histogram.php" }'
+//Usage: cat someprogram.log | ./histogram.php 0 100 10
+/* Parameters:
+ * x_min
+ * x_max
+ * buckets
+ * digits
+ */
 
+/* Requires: 
+ * PHP CLI (sudo apt-get install php5-cli)
+ */
+/* Cautionary Tails:
+ * Beware of overrun issues with $t on large numerical inputs esp on 32 bit machines - may throw means off
+ * Incomplete log axis control
+ * Vertical rescaling doesn't work
+ * Binning cannot change after initialization
+ * Redraws on each input - For high iteration jobs, add a few lines to slow down the redraw
+ * Window calculations were done half hazardly
+ * Not responsible for breaking ur shit (as always)
+ * Feel free to contribute back with a pull request
+ * Copyleft please - GPL3
+ */
 $x_min = $argc > 1 ? $argv[1] : 0;
 $x_max = $argc > 2 ? $argv[2] : 100;
 $buckets = $argc > 3 ? $argv[3] : exec('tput lines') - 3;
 $digits = $argc > 4 && $argv[4] > 3 ? $argv[4] : 5;
 $x_log = $argc > 5 ? $argv[5] : false;//incomplete
 $y_log = $argc > 6 ? $argv[6] : false;//incomplete
-
 
 if ($x_log) $x_step = ($x_max - $x_min) / $buckets; // revise algorithm for logorithmic indepdent vars
 else $x_step = ($x_max - $x_min) / $buckets;
