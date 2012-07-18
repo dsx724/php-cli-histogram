@@ -1,8 +1,8 @@
 #!/usr/bin/php
 <?php
 //Simple Bash/CLI Wrapped PHP Histogram 
-//Usage: iostat -dx 1 /dev/sda | gawk '/sda/ {print $14 | "./histogram.php 0 100 100" }'
-//Usage: cat someprogram.log | ./histogram.php 0 1 100
+//Usage: iostat -dx 1 /dev/sda | gawk '/sda/ {print $14 | "./histogram.php 0 100 20" }'
+//Usage: cat someprogram.log | ./histogram.php 0 1 100 5 1 1
 /* Parameters:
  * x_min
  * x_max
@@ -20,7 +20,9 @@
  * tput
  */
 /* Cautionary Tails:
- * Locked Bin Size on Init
+ * More refinement with sig figs
+ * Bin size locked on init
+ * Bin merging's effect on non-divisible max bin
  * Beware of overrun issues with $t on large numerical inputs esp on 32 bit machines - may throw means off
  * Incomplete log axis control
  * Redraws on each input - For high iteration jobs, add a few lines to slow down the redraw
@@ -85,32 +87,30 @@ while (($input = rtrim(fgets($stdin))) !== false || !is_numeric($input)){
 		else if ($fv < $x_min) $data[0]++;
 		else $data[floor(($fv - $x_min))/$x_step]++;
 		
-		if ($y_log){
-			
-			//incomplete
-			
-		} else {
-			$peak = max(array_map('array_sum',array_chunk($data,$merge_buckets)));
-			$bucket_pass = 0;
-			foreach ($data as $index => $bucket){
-				if ($index % $merge_buckets == $merge_buckets - 1 || $index == $buckets - 1){
-					$bucket += $bucket_pass;
-					$bucket_pass = 0;
+		$peak = max(array_map('array_sum',array_chunk($data,$merge_buckets)));
+		echo 'Peak:'.$peak.PHP_EOL;
+		$bucket_pass = 0;
+		foreach ($data as $index => $bucket){
+			if ($index % $merge_buckets == $merge_buckets - 1 || $index == $buckets - 1){
+				$bucket += $bucket_pass;
+				$bucket_pass = 0;
+				
+				$lower_bound = $x_min + floor($index / $merge_buckets) * $x_step * $merge_buckets;
+				$lower_bound_str = sprintf('%d',$lower_bound);
+				$lower_bound_str_length = strlen($lower_bound_str);
+				$lower_bound_str = ($lower_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$lower_bound) : sprintf('%'.$digits.'.'.($digits - $lower_bound_str_length - 1).'f',$lower_bound);
 					
-					$lower_bound = $x_min + floor($index / $merge_buckets) * $x_step * $merge_buckets;
-					$lower_bound_str = sprintf('%d',$lower_bound);
-					$lower_bound_str_length = strlen($lower_bound_str);
-					$lower_bound_str = ($lower_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$lower_bound) : sprintf('%'.$digits.'.'.($digits - $lower_bound_str_length - 1).'f',$lower_bound);
-						
-					$upper_bound = $index == $buckets - 1 ? $x_max : $lower_bound + $merge_buckets * $x_step;
-					$upper_bound_str = sprintf('%d',$upper_bound);
-					$upper_bound_str_length = strlen($upper_bound_str);
-					$upper_bound_str = ($upper_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$upper_bound) : sprintf('%'.$digits.'.'.($digits - $upper_bound_str_length - 1).'f',$upper_bound);
-					
-					echo PHP_EOL.$lower_bound_str.'-'.$upper_bound_str.':'.str_repeat('#',floor($bucket * $width_length / $peak)).':'.$bucket.$height_spacer;
-				} else {
-					$bucket_pass += $bucket;
-				}
+				$upper_bound = $index == $buckets - 1 ? $x_max : $lower_bound + $merge_buckets * $x_step;
+				$upper_bound_str = sprintf('%d',$upper_bound);
+				$upper_bound_str_length = strlen($upper_bound_str);
+				$upper_bound_str = ($upper_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$upper_bound) : sprintf('%'.$digits.'.'.($digits - $upper_bound_str_length - 1).'f',$upper_bound);
+				
+				$bar_width = $bucket == 0 ? 0 :  $y_log ? ($peak == 1 ? $width_length : log($bucket,$peak) * $width_length) : $bucket * $width_length / $peak;
+				$bar_width = floor($bar_width);
+				
+				echo PHP_EOL.$lower_bound_str.'-'.$upper_bound_str.':'.str_repeat('#',$bar_width).':'.$bucket.$height_spacer;
+			} else {
+				$bucket_pass += $bucket;
 			}
 		}
 		echo $height_footer_spacer;
