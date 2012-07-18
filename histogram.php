@@ -7,6 +7,8 @@
  * x_min
  * x_max
  * buckets - dynamic merging if your window size is too small for the number of buckets
+ * x_log
+ * y_log
  * significant digits (> 5 otherwise 5 is used)
  */
 /*
@@ -20,11 +22,11 @@
  * tput
  */
 /* Cautionary Tails:
+ * Wasn't tested with negative numbers
  * More refinement with sig figs
  * Bin size locked on init
- * Bin merging's effect on non-divisible max bin
+ * Bin merging's effect on non-divisible bin numbers
  * Beware of overrun issues with $t on large numerical inputs esp on 32 bit machines - may throw means off
- * Incomplete log axis control
  * Redraws on each input - For high iteration jobs, add a few lines to slow down the redraw
  * Window calculations were done half hazardly
  * Not responsible for breaking ur shit (as always)
@@ -34,12 +36,16 @@
 $x_min = $argc > 1 ? $argv[1] : 0;
 $x_max = $argc > 2 ? $argv[2] : 100;
 $buckets = $argc > 3 ? $argv[3] : exec('tput lines') - 3;
-$digits = $argc > 4 && $argv[4] > 3 ? $argv[4] : 5;
-$x_log = $argc > 5 ? $argv[5] : false;//incomplete
-$y_log = $argc > 6 ? $argv[6] : false;//incomplete
+$x_log = $argc > 4 ? $argv[4] : false;//incomplete
+$y_log = $argc > 5 ? $argv[5] : false;
+$digits = $argc > 6 && $argv[6] > 3 ? $argv[4] : 5;
 
-if ($x_log) $x_step = 0; //incomplete
-else $x_step = ($x_max - $x_min) / $buckets;
+if ($x_max <= $x_min) die('The minimum and the maximum X values are equal or inverted.'.PHP_EOL);
+if ($x_log){
+	if ($x_min == 0 || $x_max == 0) die('The minimum and the maximum X values cannot equal 0 in the x log scale.'.PHP_EOL);
+	if ($x_min == 1) die ('The minimum X value cannot equal 1 in the x log scale.'.PHP_EOL);
+}
+$x_step = $x_log ? log($x_max,$x_min) / $buckets : ($x_max - $x_min) / $buckets;
 
 $data = array_fill(0,$buckets,0);
 
@@ -65,7 +71,7 @@ while (($input = rtrim(fgets($stdin))) !== false || !is_numeric($input)){
 	
 	$width = exec('tput cols');
 	$width_border = ($digits << 1) + 2; //margins
-	$width_length = $width - ($width_border << 1 | 1); //max bar length
+	$width_length = $width - $width_border - 8; //max bar length
 	
 	$height = exec('tput lines');
 	$height_usable = $height - 2;
@@ -80,41 +86,42 @@ while (($input = rtrim(fgets($stdin))) !== false || !is_numeric($input)){
 	//printing output
 	$var = $Qk/($k-1);
 	echo PHP_EOL.$width.'x'.$height.'	Mean:'.number_format($t/$k,2).'	Var:'.number_format($var,2).'	STD:'.number_format(sqrt($var),2).'	Input:'.$input;
-	if ($x_log){
-		
-	} else {
-		if ($fv >= $x_max) $data[$buckets - 1]++;
-		else if ($fv < $x_min) $data[0]++;
-		else $data[floor(($fv - $x_min))/$x_step]++;
-		
-		$peak = max(array_map('array_sum',array_chunk($data,$merge_buckets)));
-		echo 'Peak:'.$peak.PHP_EOL;
-		$bucket_pass = 0;
-		foreach ($data as $index => $bucket){
-			if ($index % $merge_buckets == $merge_buckets - 1 || $index == $buckets - 1){
-				$bucket += $bucket_pass;
-				$bucket_pass = 0;
-				
-				$lower_bound = $x_min + floor($index / $merge_buckets) * $x_step * $merge_buckets;
-				$lower_bound_str = sprintf('%d',$lower_bound);
-				$lower_bound_str_length = strlen($lower_bound_str);
-				$lower_bound_str = ($lower_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$lower_bound) : sprintf('%'.$digits.'.'.($digits - $lower_bound_str_length - 1).'f',$lower_bound);
-					
-				$upper_bound = $index == $buckets - 1 ? $x_max : $lower_bound + $merge_buckets * $x_step;
-				$upper_bound_str = sprintf('%d',$upper_bound);
-				$upper_bound_str_length = strlen($upper_bound_str);
-				$upper_bound_str = ($upper_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$upper_bound) : sprintf('%'.$digits.'.'.($digits - $upper_bound_str_length - 1).'f',$upper_bound);
-				
-				$bar_width = $bucket == 0 ? 0 :  $y_log ? ($peak == 1 ? $width_length : log($bucket,$peak) * $width_length) : $bucket * $width_length / $peak;
-				$bar_width = floor($bar_width);
-				
-				echo PHP_EOL.$lower_bound_str.'-'.$upper_bound_str.':'.str_repeat('#',$bar_width).':'.$bucket.$height_spacer;
-			} else {
-				$bucket_pass += $bucket;
-			}
+	
+	if ($fv >= $x_max) $data[$buckets - 1]++;
+	else if ($fv < $x_min) $data[0]++;
+	else $data[floor($x_log ? log($fv,$x_min) / $x_step - 1 : ($fv - $x_min) / $x_step)]++;
+	
+	$peak = max(array_map('array_sum',array_chunk($data,$merge_buckets)));
+	
+	$bucket_pass = 0;
+	foreach ($data as $index => $bucket){
+		if ($index % $merge_buckets == $merge_buckets - 1 || $index == $buckets - 1){
+			$bucket += $bucket_pass;
+			$bucket_pass = 0;
+			
+			$scaler = floor($index / $merge_buckets) * $x_step * $merge_buckets;
+			//var_dump($merge_buckets);
+			$lower_bound = $x_log ? pow($x_min,$scaler) : $x_min + $scaler;
+			
+			$lower_bound_str = sprintf('%d',$lower_bound);
+			$lower_bound_str_length = strlen($lower_bound_str);
+			$lower_bound_str = ($lower_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$lower_bound) : sprintf('%'.$digits.'.'.($digits - $lower_bound_str_length - 1).'f',$lower_bound);
+			
+			$upper_bound = $index == $buckets - 1 ? $x_max : ($x_log ? pow($x_min,floor($index / $merge_buckets + 1) * $x_step * $merge_buckets) : $lower_bound + $merge_buckets * $x_step);
+			
+			$upper_bound_str = sprintf('%d',$upper_bound);
+			$upper_bound_str_length = strlen($upper_bound_str);
+			$upper_bound_str = ($upper_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$upper_bound) : sprintf('%'.$digits.'.'.($digits - $upper_bound_str_length - 1).'f',$upper_bound);
+			
+			$bar_length = $bucket == 0 ? 0 :  $y_log ? ($peak == 1 ? $width_length : log($bucket,$peak) * $width_length) : $bucket * $width_length / $peak;
+			$bar_width = floor($bar_length);
+			
+			echo PHP_EOL.$lower_bound_str.'-'.$upper_bound_str.':'.str_repeat('#',$bar_width).':'.$bucket.$height_spacer;
+		} else {
+			$bucket_pass += $bucket;
 		}
-		echo $height_footer_spacer;
 	}
+	echo $height_footer_spacer;
 }
 //time_sleep_until
 //pcntl_fork
