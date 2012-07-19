@@ -41,11 +41,10 @@ $y_log = $argc > 5 ? $argv[5] : false;
 $digits = $argc > 6 && $argv[6] > 3 ? $argv[4] : 5;
 
 if ($x_max <= $x_min) die('The minimum and the maximum X values are equal or inverted.'.PHP_EOL);
-if ($x_log){
-	if ($x_min == 0 || $x_max == 0) die('The minimum and the maximum X values cannot equal 0 in the x log scale.'.PHP_EOL);
-	if ($x_min == 1) die ('The minimum X value cannot equal 1 in the x log scale.'.PHP_EOL);
-}
-$x_step = $x_log ? log($x_max,$x_min) / $buckets : ($x_max - $x_min) / $buckets;
+if ($x_log && ($x_min <= 0 || $x_max <= 0)) die('The minimum and the maximum X values cannot be less than or equal to 0 in the x log scale.'.PHP_EOL);
+
+$x_step = $x_log ? pow($x_max / $x_min,1 / $buckets) : ($x_max - $x_min) / $buckets;
+var_dump($x_step);
 
 $data = array_fill(0,$buckets,0);
 
@@ -89,7 +88,7 @@ while (($input = rtrim(fgets($stdin))) !== false || !is_numeric($input)){
 	
 	if ($fv >= $x_max) $data[$buckets - 1]++;
 	else if ($fv < $x_min) $data[0]++;
-	else $data[floor($x_log ? log($fv,$x_min) / $x_step - 1 : ($fv - $x_min) / $x_step)]++;
+	else $data[floor($x_log ? log($fv,$x_step) - log($x_min,$x_step) : ($fv - $x_min) / $x_step)]++;
 	
 	$peak = max(array_map('array_sum',array_chunk($data,$merge_buckets)));
 	
@@ -99,16 +98,14 @@ while (($input = rtrim(fgets($stdin))) !== false || !is_numeric($input)){
 			$bucket += $bucket_pass;
 			$bucket_pass = 0;
 			
-			$scaler = floor($index / $merge_buckets) * $x_step * $merge_buckets;
-			//var_dump($merge_buckets);
-			$lower_bound = $x_log ? pow($x_min,$scaler) : $x_min + $scaler;
+			$scaler = floor($index / $merge_buckets) * $merge_buckets;
 			
+			$lower_bound = $x_log ? $x_min * pow($x_step, $scaler) : $x_min + $x_step * $scaler;
 			$lower_bound_str = sprintf('%d',$lower_bound);
 			$lower_bound_str_length = strlen($lower_bound_str);
 			$lower_bound_str = ($lower_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$lower_bound) : sprintf('%'.$digits.'.'.($digits - $lower_bound_str_length - 1).'f',$lower_bound);
 			
-			$upper_bound = $index == $buckets - 1 ? $x_max : ($x_log ? pow($x_min,floor($index / $merge_buckets + 1) * $x_step * $merge_buckets) : $lower_bound + $merge_buckets * $x_step);
-			
+			$upper_bound = $index == $buckets - 1 ? $x_max : ($x_log ? $lower_bound * pow($x_step,$merge_buckets) : $lower_bound + $merge_buckets * $x_step);
 			$upper_bound_str = sprintf('%d',$upper_bound);
 			$upper_bound_str_length = strlen($upper_bound_str);
 			$upper_bound_str = ($upper_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$upper_bound) : sprintf('%'.$digits.'.'.($digits - $upper_bound_str_length - 1).'f',$upper_bound);
