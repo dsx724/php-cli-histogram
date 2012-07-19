@@ -22,6 +22,7 @@
  * tput
  */
 /* Cautionary Tails:
+ * Not designed look pretty after 999,999 elements in 1 bin (11 days of same bin at 1/s)
  * Wasn't tested with negative numbers
  * More refinement with sig figs
  * Bin size locked on init
@@ -70,7 +71,7 @@ while (($input = rtrim(fgets($stdin))) !== false || !is_numeric($input)){
 	
 	$width = exec('tput cols');
 	$width_border = ($digits << 1) + 2; //margins
-	$width_length = $width - $width_border - 8; //max bar length
+	$width_length = $width - $width_border - 7; //max bar length
 	
 	$height = exec('tput lines');
 	$height_usable = $height - 2;
@@ -101,19 +102,16 @@ while (($input = rtrim(fgets($stdin))) !== false || !is_numeric($input)){
 			$scaler = floor($index / $merge_buckets) * $merge_buckets;
 			
 			$lower_bound = $x_log ? $x_min * pow($x_step, $scaler) : $x_min + $x_step * $scaler;
-			$lower_bound_str = sprintf('%d',$lower_bound);
-			$lower_bound_str_length = strlen($lower_bound_str);
+			$lower_bound_str_length = strlen(sprintf('%d',$lower_bound));
 			$lower_bound_str = ($lower_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$lower_bound) : sprintf('%'.$digits.'.'.($digits - $lower_bound_str_length - 1).'f',$lower_bound);
 			
 			$upper_bound = $index == $buckets - 1 ? $x_max : ($x_log ? $lower_bound * pow($x_step,$merge_buckets) : $lower_bound + $merge_buckets * $x_step);
-			$upper_bound_str = sprintf('%d',$upper_bound);
-			$upper_bound_str_length = strlen($upper_bound_str);
+			$upper_bound_str_length = strlen(sprintf('%d',$upper_bound));
 			$upper_bound_str = ($upper_bound_str_length > $digits) ? sprintf('%'.$digits.'.'.($digits - 4).'e',$upper_bound) : sprintf('%'.$digits.'.'.($digits - $upper_bound_str_length - 1).'f',$upper_bound);
 			
-			$bar_length = $bucket == 0 ? 0 :  $y_log ? ($peak == 1 ? $width_length : log($bucket,$peak) * $width_length) : $bucket * $width_length / $peak;
-			$bar_width = floor($bar_length);
+			$bar_length = floor($bucket == 0 ? 0 : $y_log ? ($peak == 1 ? $width_length : log($bucket,$peak) * $width_length) : $bucket * $width_length / $peak);
 			
-			echo PHP_EOL.$lower_bound_str.'-'.$upper_bound_str.':'.str_repeat('#',$bar_width).':'.$bucket.$height_spacer;
+			echo PHP_EOL.$lower_bound_str.'-'.$upper_bound_str.':'.str_repeat('#',$bar_length).':'.$bucket.$height_spacer;
 		} else {
 			$bucket_pass += $bucket;
 		}
