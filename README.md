@@ -1,12 +1,23 @@
+[blog](http://www.xuetech.com/2012/07/long-awaited-cli-histogram.html)
+======
+
 php-cli-histogram
 =================
-Simple CLI histogram for numeric inputs written in PHP
+Simple CLI histogram for numeric inputs written in PHP. See [example.png](https://raw.github.com/dsx724/php-cli-histogram/master/example.png).
+[Apache 2.0 License](https://raw.github.com/dsx724/console-qrcode/master/LICENSE).
+
+requires
+========
+* PHP CLI (sudo apt-get install php5-cli)
+* tput - ioctls are not available in PHP
+
 usage
 =====
-<pre>
+```bash
 iostat -dx 1 /dev/sda | gawk '/sda/ {print $14 | "./histogram.php 0 100 20" }'
 cat someprogram.log | ./histogram.php 0 1 100 5 1 1
-</pre>
+```
+
 arguments
 =========
 * x_min
@@ -22,10 +33,6 @@ features
 * Bin Merging on Small Window
 * Vertical/Horizontal Window Adjustments
 
-requires
-========
-* PHP CLI (sudo apt-get install php5-cli)
-* tput - ioctls are not available in PHP
 
 cautionary tails
 ================
