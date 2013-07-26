@@ -33,7 +33,6 @@ features
 * Bin Merging on Small Window
 * Vertical/Horizontal Window Adjustments
 
-
 cautionary tails
 ================
 * Not designed look pretty after 999,999 elements in 1 bin - 11 days of same bin at 1/s
